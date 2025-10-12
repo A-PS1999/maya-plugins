@@ -16,6 +16,20 @@ static const float DEFAULT_VOXEL_DISTANCE = 1.0f;
 VoxelizerNode::VoxelizerNode() : MPxNode() {}
 VoxelizerNode::~VoxelizerNode() {}
 
+MStatus VoxelizerNode::compute(const MPlug& plug, MDataBlock& dataBlock) {
+	
+	if (plug == VoxelizerNode::outputMeshObj) {
+		float voxelWidth = dataBlock.inputValue(voxelWidthObj).asFloat();
+		float voxelDistance = dataBlock.inputValue(voxelDistanceObj).asFloat();
+		MObject inputMesh = dataBlock.inputValue(inputMeshObj).asMesh();
+
+		return MS::kSuccess;
+	}
+	else {
+		return MS::kUnknownParameter;
+	}
+}
+
 void* VoxelizerNode::Creator() {
 	return new VoxelizerNode();
 }
@@ -37,6 +51,29 @@ MStatus VoxelizerNode::Initialize() {
 	numericAttr.setStorable(true);
 	numericAttr.setHidden(false);
 	numericAttr.setMin(0.1f);
+
+	inputMeshObj = typedAttr.create("inputMesh", "im", MFnData::kMesh);
+	typedAttr.setWritable(true);
+	typedAttr.setReadable(false);
+	typedAttr.setStorable(true);
+	typedAttr.setHidden(false);
+
+	outputMeshObj = typedAttr.create("outputMesh", "om", MFnData::kMesh);
+	typedAttr.setWritable(false);
+	typedAttr.setReadable(true);
+	typedAttr.setStorable(false);
+	typedAttr.setHidden(false);
+
+	addAttribute(voxelWidthObj);
+	addAttribute(voxelDistanceObj);
+	addAttribute(inputMeshObj);
+	addAttribute(outputMeshObj);
+
+	attributeAffects(voxelWidthObj, outputMeshObj);
+	attributeAffects(voxelDistanceObj, outputMeshObj);
+	attributeAffects(inputMeshObj, outputMeshObj);
+
+	return MS::kSuccess;
 }
 
 MTypeId VoxelizerNode::GetTypeId() {
