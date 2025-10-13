@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <maya/MPxNode.h>
+#include <maya/MBoundingBox.h>
 
 class VoxelizerNode : public MPxNode {
 
@@ -21,4 +22,8 @@ private:
 	static MObject voxelDistanceObj;
 	static MObject inputMeshObj;
 	static MObject outputMeshObj;
+
+	static MBoundingBox GetBoundingBox(MObject meshObj);
+	static MPointArray GetVoxels(float voxelDistance, MObject meshObj, MBoundingBox boundingBox);
+	static void CreateVoxelMesh(MPointArray voxelPositions, float voxelWidth, MObject& outputMeshData);
 };
