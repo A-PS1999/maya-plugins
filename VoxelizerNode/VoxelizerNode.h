@@ -25,5 +25,5 @@ private:
 
 	static MBoundingBox GetBoundingBox(MObject meshObj);
 	static MPointArray GetVoxels(float voxelDistance, MObject meshObj, MBoundingBox boundingBox);
-	static void CreateVoxelMesh(MPointArray voxelPositions, float voxelWidth, MObject& outputMeshData);
+	static MObject CreateVoxelMesh(MPointArray voxelPositions, float voxelWidth, MObject& outputMeshData);
 };

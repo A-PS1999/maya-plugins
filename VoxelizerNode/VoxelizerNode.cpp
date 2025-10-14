@@ -33,7 +33,7 @@ MStatus VoxelizerNode::compute(const MPlug& plug, MDataBlock& dataBlock) {
 		MFnMeshData meshDataFn;
 		MObject newOutputMeshData = meshDataFn.create();
 
-		VoxelizerNode::CreateVoxelMesh(voxels, voxelWidth, newOutputMeshData);
+		MObject voxelMesh = VoxelizerNode::CreateVoxelMesh(voxels, voxelWidth, newOutputMeshData);
 
 		MDataHandle outputMeshHandle = dataBlock.outputValue(VoxelizerNode::outputMeshObj);
 
@@ -122,8 +122,38 @@ MPointArray VoxelizerNode::GetVoxels(float voxelDistance, MObject meshObj, MBoun
 	return voxels;
 }
 
-void VoxelizerNode::CreateVoxelMesh(MPointArray voxelPositions, float voxelWidth, MObject& outputMeshData) {
-	// TODO
+MObject VoxelizerNode::CreateVoxelMesh(MPointArray voxelPositions, float voxelWidth, MObject& outputMeshData) {
+	int numVoxels = voxelPositions.length();
+
+	int numVertsPerVoxel = 8; // As a cube has 8 vertices
+	int numPolysPerVoxel = 6; // Cube has 6 faces
+	int numVertsPerPoly = 4; // 4 verts per cube face
+	int numPolyConnectionsPerVoxel = numPolysPerVoxel * numVertsPerPoly;
+
+	int totalVerts = numVoxels * numVertsPerVoxel;
+	MFloatPointArray vertArray = MFloatPointArray().setLength(totalVerts);
+	int vertIndexOffset = 0;
+
+	int totalPolys = numVoxels * numPolysPerVoxel;
+	MIntArray polyCounts = MIntArray().setLength(totalPolys);
+	int polyOffsetIndex = 0;
+
+	int totalPolyConnections = numVoxels * numPolyConnectionsPerVoxel;
+	MIntArray polyConnections = MIntArray().setLength(totalPolyConnections);
+	int polyConnectionsIndexOffset = 0;
+
+	for (int i = 0; i < numVoxels; i++) {
+		MPoint voxelPos = voxelPositions[i];
+
+		// TODO function for cube creation
+
+		vertIndexOffset += numVertsPerVoxel;
+		polyOffsetIndex += numPolysPerVoxel;
+		polyConnectionsIndexOffset += numPolyConnectionsPerVoxel;
+	}
+
+	MFnMesh meshFn;
+	return meshFn.create(totalVerts, totalPolys, vertArray, polyCounts, polyConnections, outputMeshData);
 }
 
 void* VoxelizerNode::Creator() {
