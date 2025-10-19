@@ -4,7 +4,9 @@
 #include <maya/MFnMesh.h>
 #include <maya/MFnMeshData.h>
 #include <maya/MPointArray.h>
+#include <maya/MFloatPoint.h>
 #include <maya/MFloatPointArray.h>
+#include <maya/MIntArray.h>
 
 static const MTypeId TYPE_ID = MTypeId(0x000BEEF6);
 static const MString TYPE_NAME = "voxelizernode";
@@ -16,6 +18,9 @@ MObject VoxelizerNode::voxelDistanceObj;
 
 static const float DEFAULT_VOXEL_WIDTH = 0.9f;
 static const float DEFAULT_VOXEL_DISTANCE = 1.0f;
+static const int NUM_VERTS_PER_VOXEL = 8; // Cube has 8 vertices
+static const int NUM_POLYS_PER_VOXEL = 6; // Cube has 6 faces
+static const int NUM_VERTS_PER_POLY = 4; // 4 verts per cube face
 
 VoxelizerNode::VoxelizerNode() : MPxNode() {}
 VoxelizerNode::~VoxelizerNode() {}
@@ -51,7 +56,7 @@ MBoundingBox VoxelizerNode::GetBoundingBox(MObject meshObj) {
 
 	meshFn.getPoints(pointArray, MSpace::kTransform);
 
-	for (int i = 0; i < pointArray.length(); i++) {
+	for (unsigned int i = 0; i < pointArray.length(); i++) {
 		MPoint point = pointArray[i];
 		boundingBox.expand(point);
 	}
@@ -61,7 +66,7 @@ MBoundingBox VoxelizerNode::GetBoundingBox(MObject meshObj) {
 
 MPointArray VoxelizerNode::GetVoxels(float voxelDistance, MObject meshObj, MBoundingBox boundingBox) {
 	MPointArray voxels;
-	MFnMesh meshFn = MFnMesh(meshObj);
+	MFnMesh meshFn = MFnMesh(meshObj, NULL);
 	float halfVoxelDist = voxelDistance * 0.5f;
 	double distAsDouble = (double)voxelDistance;
 	
@@ -84,7 +89,7 @@ MPointArray VoxelizerNode::GetVoxels(float voxelDistance, MObject meshObj, MBoun
 	double zEnd = maxPoint.z;
 
 	MFloatVector rayDir = MFloatVector(0, 0, -1);
-	float tolerance = 0.0001;
+	float tolerance = 0.0001f;
 
 	MFloatPointArray hitPts;
 
@@ -125,16 +130,13 @@ MPointArray VoxelizerNode::GetVoxels(float voxelDistance, MObject meshObj, MBoun
 MObject VoxelizerNode::CreateVoxelMesh(MPointArray voxelPositions, float voxelWidth, MObject& outputMeshData) {
 	int numVoxels = voxelPositions.length();
 
-	int numVertsPerVoxel = 8; // As a cube has 8 vertices
-	int numPolysPerVoxel = 6; // Cube has 6 faces
-	int numVertsPerPoly = 4; // 4 verts per cube face
-	int numPolyConnectionsPerVoxel = numPolysPerVoxel * numVertsPerPoly;
+	int numPolyConnectionsPerVoxel = NUM_POLYS_PER_VOXEL * NUM_VERTS_PER_POLY;
 
-	int totalVerts = numVoxels * numVertsPerVoxel;
+	int totalVerts = numVoxels * NUM_VERTS_PER_VOXEL;
 	MFloatPointArray vertArray = MFloatPointArray().setLength(totalVerts);
 	int vertIndexOffset = 0;
 
-	int totalPolys = numVoxels * numPolysPerVoxel;
+	int totalPolys = numVoxels * NUM_POLYS_PER_VOXEL;
 	MIntArray polyCounts = MIntArray().setLength(totalPolys);
 	int polyOffsetIndex = 0;
 
@@ -145,15 +147,52 @@ MObject VoxelizerNode::CreateVoxelMesh(MPointArray voxelPositions, float voxelWi
 	for (int i = 0; i < numVoxels; i++) {
 		MPoint voxelPos = voxelPositions[i];
 
-		// TODO function for cube creation
+		VoxelizerNode::CreateCube(voxelPos, voxelWidth, vertArray, vertIndexOffset, polyCounts,
+			polyOffsetIndex, polyConnections, polyConnectionsIndexOffset
+		);
 
-		vertIndexOffset += numVertsPerVoxel;
-		polyOffsetIndex += numPolysPerVoxel;
+		vertIndexOffset += NUM_VERTS_PER_VOXEL;
+		polyOffsetIndex += NUM_POLYS_PER_VOXEL;
 		polyConnectionsIndexOffset += numPolyConnectionsPerVoxel;
 	}
 
 	MFnMesh meshFn;
 	return meshFn.create(totalVerts, totalPolys, vertArray, polyCounts, polyConnections, outputMeshData);
+}
+
+void VoxelizerNode::CreateCube(MPoint voxelPos, float width, MFloatPointArray& vertexArray, int vertexIndexOffset, MIntArray& polyCountsArray,
+	int polygonCountIndexOffset, MIntArray& polyConnectionsArray, int polyConnectionsIndexOffset
+) {
+	double halfWidth = width / 2.0f;
+
+	double floatVerts[][4] = { {-halfWidth + voxelPos.x, -halfWidth + voxelPos.y, -halfWidth + voxelPos.z},
+		{halfWidth + voxelPos.x, -halfWidth + voxelPos.y, -halfWidth + voxelPos.z},
+		{halfWidth + voxelPos.x, -halfWidth + voxelPos.y,  halfWidth + voxelPos.z},
+		{-halfWidth + voxelPos.x, -halfWidth + voxelPos.y,  halfWidth + voxelPos.z},
+		{-halfWidth + voxelPos.x,  halfWidth + voxelPos.y, -halfWidth + voxelPos.z},
+		{-halfWidth + voxelPos.x,  halfWidth + voxelPos.y,  halfWidth + voxelPos.z},
+		{halfWidth + voxelPos.x,  halfWidth + voxelPos.y,  halfWidth + voxelPos.z},
+		{halfWidth + voxelPos.x,  halfWidth + voxelPos.y, -halfWidth + voxelPos.z}
+	};
+
+	MFloatPointArray vertices = MFloatPointArray(floatVerts, NUM_VERTS_PER_VOXEL);
+
+	const int POLY_CONNECTIONS_ELEM_SIZE = 3;
+	int polyConnectionElems[][POLY_CONNECTIONS_ELEM_SIZE] = { {0, 12, 16}, {1, 19, 20}, {2, 9, 23}, {3, 8, 13},
+		{4, 15, 17}, {5, 11, 14}, {6, 10, 22}, {7, 18, 21}
+	};
+
+	for (int i=0; i < NUM_VERTS_PER_VOXEL; i++) {
+		vertexArray[vertexIndexOffset + i] = vertices[i];
+
+		for (int j=0; j < POLY_CONNECTIONS_ELEM_SIZE; j++) {
+			polyConnectionsArray[polyConnectionsIndexOffset + polyConnectionElems[i][j]] = vertexIndexOffset + i;
+		}
+	}
+
+	for (int n = 0; n < NUM_POLYS_PER_VOXEL; n++) {
+		polyCountsArray[polygonCountIndexOffset + n] = NUM_VERTS_PER_POLY;
+	}
 }
 
 void* VoxelizerNode::Creator() {

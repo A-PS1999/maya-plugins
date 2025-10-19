@@ -26,4 +26,6 @@ private:
 	static MBoundingBox GetBoundingBox(MObject meshObj);
 	static MPointArray GetVoxels(float voxelDistance, MObject meshObj, MBoundingBox boundingBox);
 	static MObject CreateVoxelMesh(MPointArray voxelPositions, float voxelWidth, MObject& outputMeshData);
+	static void CreateCube(MPoint voxelPos, float width, MFloatPointArray& vertexArray, int vertexIndexOffset, MIntArray& polyCountsArray, 
+		int polygonCountIndexOffset, MIntArray& polyConnectionsArray, int polyConnectionsIndexOffset);
 };

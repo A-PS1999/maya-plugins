@@ -1,4 +1,4 @@
-*.ninja
+*.ninja*
 *.cmake
 *.bin
 CMakeFiles/
