@@ -2,7 +2,7 @@
 
 include($ENV{DEVKIT_LOCATION}/cmake/pluginEntry.cmake)
 
-set(PROJECT_NAME BlendDeformer)
+set(PROJECT_NAME VoxelizerNode)
 project(${PROJECT_NAME})
 
 set(SOURCE_FILES 

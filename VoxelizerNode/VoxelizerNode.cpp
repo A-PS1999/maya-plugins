@@ -1,4 +1,5 @@
 ﻿#include "VoxelizerNode.h"
+#include <maya/MGlobal.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnMesh.h>
@@ -9,7 +10,7 @@
 #include <maya/MIntArray.h>
 
 static const MTypeId TYPE_ID = MTypeId(0x000BEEF6);
-static const MString TYPE_NAME = "voxelizernode";
+static const MString TYPE_NAME = "voxelizerNode";
 
 MObject VoxelizerNode::inputMeshObj;
 MObject VoxelizerNode::outputMeshObj;
@@ -51,7 +52,8 @@ MStatus VoxelizerNode::compute(const MPlug& plug, MDataBlock& dataBlock) {
 
 MBoundingBox VoxelizerNode::GetBoundingBox(MObject meshObj) {
 	MBoundingBox boundingBox;
-	MFnMesh meshFn = MFnMesh(meshObj);
+	MFnMesh meshFn;
+	meshFn.setObject(meshObj);
 	MPointArray pointArray;
 
 	meshFn.getPoints(pointArray, MSpace::kTransform);
@@ -66,7 +68,8 @@ MBoundingBox VoxelizerNode::GetBoundingBox(MObject meshObj) {
 
 MPointArray VoxelizerNode::GetVoxels(float voxelDistance, MObject meshObj, MBoundingBox boundingBox) {
 	MPointArray voxels;
-	MFnMesh meshFn = MFnMesh(meshObj, NULL);
+	MFnMesh meshFn;
+	meshFn.setObject(meshObj);
 	float halfVoxelDist = voxelDistance * 0.5f;
 	double distAsDouble = (double)voxelDistance;
 	
@@ -133,15 +136,18 @@ MObject VoxelizerNode::CreateVoxelMesh(MPointArray voxelPositions, float voxelWi
 	int numPolyConnectionsPerVoxel = NUM_POLYS_PER_VOXEL * NUM_VERTS_PER_POLY;
 
 	int totalVerts = numVoxels * NUM_VERTS_PER_VOXEL;
-	MFloatPointArray vertArray = MFloatPointArray().setLength(totalVerts);
+	MFloatPointArray vertArray = MFloatPointArray();
+	vertArray.setLength(totalVerts);
 	int vertIndexOffset = 0;
 
 	int totalPolys = numVoxels * NUM_POLYS_PER_VOXEL;
-	MIntArray polyCounts = MIntArray().setLength(totalPolys);
+	MIntArray polyCounts = MIntArray();
+	polyCounts.setLength(totalPolys);
 	int polyOffsetIndex = 0;
 
 	int totalPolyConnections = numVoxels * numPolyConnectionsPerVoxel;
-	MIntArray polyConnections = MIntArray().setLength(totalPolyConnections);
+	MIntArray polyConnections = MIntArray(); 
+	polyConnections.setLength(totalPolyConnections);
 	int polyConnectionsIndexOffset = 0;
 
 	for (int i = 0; i < numVoxels; i++) {
@@ -157,7 +163,16 @@ MObject VoxelizerNode::CreateVoxelMesh(MPointArray voxelPositions, float voxelWi
 	}
 
 	MFnMesh meshFn;
-	return meshFn.create(totalVerts, totalPolys, vertArray, polyCounts, polyConnections, outputMeshData);
+	MStatus voxelMeshCreateReturn;
+
+	MObject toReturn = meshFn.create(totalVerts, totalPolys, vertArray, polyCounts, polyConnections, outputMeshData, &voxelMeshCreateReturn);
+
+	if (voxelMeshCreateReturn != MS::kSuccess) {
+		MGlobal::displayError("An error occurred: " + voxelMeshCreateReturn.errorString());
+		OutputDebugString(voxelMeshCreateReturn.errorString().asChar());
+	}
+
+	return toReturn;
 }
 
 void VoxelizerNode::CreateCube(MPoint voxelPos, float width, MFloatPointArray& vertexArray, int vertexIndexOffset, MIntArray& polyCountsArray,
@@ -183,14 +198,29 @@ void VoxelizerNode::CreateCube(MPoint voxelPos, float width, MFloatPointArray& v
 	};
 
 	for (int i=0; i < NUM_VERTS_PER_VOXEL; i++) {
+		if ((vertexIndexOffset + i) > vertexArray.length()) {
+			MGlobal::displayError("Internal array access error in NUM_VERTS_PER_VOXEL loop!");
+			OutputDebugString("Attempted to access index of vertexArray which is too far\n");
+			return;
+		}
 		vertexArray[vertexIndexOffset + i] = vertices[i];
 
 		for (int j=0; j < POLY_CONNECTIONS_ELEM_SIZE; j++) {
+			if ((polyConnectionsIndexOffset + polyConnectionElems[i][j]) > polyConnectionsArray.length()) {
+				MGlobal::displayError("Internal array access error in POLY_CONNECTIONS_ELEM_SIZE loop!");
+				OutputDebugString("Attempted to access index of polyConnectionsArray which is too far\n");
+				return;
+			}
 			polyConnectionsArray[polyConnectionsIndexOffset + polyConnectionElems[i][j]] = vertexIndexOffset + i;
 		}
 	}
 
 	for (int n = 0; n < NUM_POLYS_PER_VOXEL; n++) {
+		if ((polygonCountIndexOffset + n) > polyCountsArray.length()) {
+			MGlobal::displayError("Internal array access error in NUM_POLYS_PER_VOXEL loop!");
+			OutputDebugString("Attempted to access index of polyCountsArray which is too far\n");
+			return;
+		}
 		polyCountsArray[polygonCountIndexOffset + n] = NUM_VERTS_PER_POLY;
 	}
 }
