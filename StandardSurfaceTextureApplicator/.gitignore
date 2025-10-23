@@ -1,0 +1,10 @@
+.venv
+*.ninja*
+*.cmake
+*.bin
+CMakeFiles/
+.vs/
+CMakeCache.txt
+Testing/
+VSInheritEnvironments.txt
+.vscode/
